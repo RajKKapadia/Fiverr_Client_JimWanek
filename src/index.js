@@ -20,24 +20,7 @@ webApp.get('/', (req, res) => {
     res.send(`Hello World.!`);
 });
 
-// Handle userProvidesAppointmentType
-const userProvidesAppointmentType = (req) => {
-
-    let outputContexts = req.body.queryResult.outputContexts;
-
-    let first_name;
-
-    outputContexts.forEach(outputContext => {
-        let session = outputContext.name;
-        if (session.includes('/contexts/session')) {
-            first_name = outputContext.parameters.first_name;
-        }
-    });
-
-    let response = `Thanks ${first_name}! Are you a new or existing patient?`;
-
-    return response;
-};
+const TIMEZONE = '+05:30';
 
 // Get date and time
 const getDateTime = (date, time) => {
@@ -49,11 +32,11 @@ const getDateTime = (date, time) => {
     let hour = time.split('T')[1].split(':')[0];
     let minute = time.split('T')[1].split(':')[1];
 
-    let newDateTime = `${year}-${month}-${day}T${hour}:${minute}:00.000Z`;
+    let newDateTime = `${year}-${month}-${day}T${hour}:${minute}:00.000${TIMEZONE}`;
 
     let event = new Date(Date.parse(newDateTime));
 
-    let dateTime = event.toLocaleString('en').split(',');
+    let dateTime = event.toLocaleString('en', { timeZone: 'Asia/Kolkata' }).split(',');
 
     return {
         date: dateTime[0],
@@ -82,12 +65,95 @@ const createData = async (endPoint, fields) => {
     }
 };
 
+// create utterance transcript
+const utteranceTranscript = (req, flag) => {
+
+    let fulfillmentText = '';
+    let queryText = '';
+    let transcript = [];
+    let session = '';
+
+    if (flag) {
+        fulfillmentText += req.body.queryResult.fulfillmentText;
+        queryText += req.body.queryResult.queryText;
+
+        session += req.body.session;
+
+        let outputContexts = req.body.queryResult.outputContexts;
+
+        outputContexts.forEach(outputContext => {
+            let session = outputContext.name;
+            if (session.includes('/contexts/session')) {
+                if (outputContext.hasOwnProperty('parameters')) {
+                    if (outputContext.parameters.hasOwnProperty('transcript')) {
+                        transcript = outputContext.parameters.transcript;
+                    }
+                }
+            }
+        });
+    } else {
+        fulfillmentText += req.fulfillmentText;
+        queryText += req.queryText;
+        session += req.session;
+        transcript = req.transcript;
+    }
+
+    let date = new Date();
+
+    transcript.push({
+        user: queryText,
+        bot: fulfillmentText,
+        date: date.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+    });
+
+    let contextName = `${session}/contexts/session`;
+
+    return {
+        fulfillmentText: fulfillmentText,
+        outputContexts: [{
+            name: contextName,
+            lifespanCount: 50,
+            parameters: {
+                transcript: transcript
+            }
+        }]
+    };
+};
+
+// Handle userProvidesAppointmentType
+const userProvidesAppointmentType = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let first_name, transcript;
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            first_name = outputContext.parameters.first_name;
+            transcript = outputContext.parameters.transcript;
+        }
+    });
+
+    let outString = `Thanks ${first_name}! Are you a new or existing patient?`;
+
+    return utteranceTranscript({
+        fulfillmentText: outString,
+        queryText: queryText,
+        session: session,
+        transcript: transcript
+    }, false);
+};
+
 // Handle userProvidesLeadSource
 const userProvidesLeadSource = async (req) => {
 
     let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
 
-    let first_name, last_name, phone, email, patient_type, lead_source, appt_type, appt_date, appt_time;
+    let first_name, last_name, phone, email, patient_type, lead_source, appt_type, appt_date, appt_time, transcript;
 
     outputContexts.forEach(outputContext => {
         let session = outputContext.name;
@@ -101,7 +167,16 @@ const userProvidesLeadSource = async (req) => {
             appt_type = outputContext.parameters.appt_type;
             appt_date = outputContext.parameters.appt_date;
             appt_time = outputContext.parameters.appt_time;
+            transcript = outputContext.parameters.transcript;
         }
+    });
+
+    let tDate = new Date();
+
+    transcript.push({
+        user: queryText,
+        bot: 'Sounds good. Can I help with anything else?',
+        date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
     });
 
     let datetime = getDateTime(appt_date, appt_time);
@@ -115,7 +190,8 @@ const userProvidesLeadSource = async (req) => {
         lead_source: lead_source,
         appt_type: appt_type,
         appt_date: datetime.date,
-        appt_time: datetime.time
+        appt_time: datetime.time,
+        transcript: transcript
     };
 
     if (patient_type === 'Existing Patient') {
@@ -124,15 +200,18 @@ const userProvidesLeadSource = async (req) => {
         await createData('ovtlopy', fields);
     }
 
-    return 'Sounds good. Can I help with anything else?';
+    return {
+        fulfillmentText: 'Sounds good. Can I help with anything else?'
+    };
 };
 
 // Handle userProvidesLastnameNumberPC
 const userProvidesLastnameNumberPC = async (req) => {
 
     let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
 
-    let first_name, last_name, phone, patient_type;
+    let first_name, last_name, phone, patient_type, transcript;
 
     outputContexts.forEach(outputContext => {
         let session = outputContext.name;
@@ -141,14 +220,24 @@ const userProvidesLastnameNumberPC = async (req) => {
             last_name = outputContext.parameters.last_name;
             phone = outputContext.parameters.phone;
             patient_type = outputContext.parameters.patient_type;
+            transcript = outputContext.parameters.transcript;
         }
+    });
+
+    let tDate = new Date();
+
+    transcript.push({
+        user: queryText,
+        bot: 'Sounds good. Can I help with anything else?',
+        date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
     });
 
     let fields = {
         first_name: first_name,
         last_name: last_name,
         phone: `${phone}`,
-        patient_type: patient_type
+        patient_type: patient_type,
+        transcript: transcript
     };
 
     if (patient_type === 'Existing Patient') {
@@ -157,7 +246,9 @@ const userProvidesLastnameNumberPC = async (req) => {
         await createData('ovtloyr', fields);
     }
 
-    return 'Sounds good. Can I help with anything else?';
+    return {
+        fulfillmentText: 'Sounds good. Can I help with anything else?'
+    };
 };
 
 // Webhook route
@@ -167,21 +258,23 @@ webApp.post('/webhook', async (req, res) => {
     console.log('Webhook called');
     console.log(action);
 
-    let response = '';
+    let response = {};
 
     if (action === 'userProvidesAppointmentType') {
-        response += userProvidesAppointmentType(req);
+        response = userProvidesAppointmentType(req);
     } else if (action === 'userProvidesLeadSource') {
-        response += await userProvidesLeadSource(req);
+        response = await userProvidesLeadSource(req);
     } else if (action === 'userProvidesLastnameNumberPC') {
-        response += await userProvidesLastnameNumberPC(req);
+        response = await userProvidesLastnameNumberPC(req);
+    } else if (action === 'utteranceTranscript') {
+        response = utteranceTranscript(req, true);
     } else {
-        response += 'No action is set for this intent.'
+        response = {
+            fulfillmentText: 'No action is set for this intent.'
+        }
     }
 
-    res.send({
-        fulfillmentText: response
-    });
+    res.send(response);
 });
 
 // Start the server
