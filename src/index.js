@@ -66,7 +66,7 @@ const createData = async (endPoint, fields) => {
 };
 
 // create utterance transcript
-const utteranceTranscript = (req, flag) => {
+const utteranceTranscript = (req, flag, oc='') => {
 
     let fulfillmentText = '';
     let queryText = '';
@@ -108,16 +108,34 @@ const utteranceTranscript = (req, flag) => {
 
     let contextName = `${session}/contexts/session`;
 
-    return {
-        fulfillmentText: fulfillmentText,
-        outputContexts: [{
+    if (oc === '') {
+        return {
+            fulfillmentText: fulfillmentText,
+            outputContexts: [{
+                name: contextName,
+                lifespanCount: 50,
+                parameters: {
+                    transcript: transcript
+                }
+            }]
+        };
+    } else {
+        let outputContext = [];
+        outputContext.push({
             name: contextName,
             lifespanCount: 50,
             parameters: {
                 transcript: transcript
             }
-        }]
-    };
+        });
+        oc.forEach(out => {
+            outputContext.push(out);
+        });
+        return {
+            fulfillmentText: fulfillmentText,
+            outputContexts: outputContext
+        };
+    }
 };
 
 // Handle userProvidesAppointmentType
@@ -251,6 +269,51 @@ const userProvidesLastnameNumberPC = async (req) => {
     };
 };
 
+// Handle userProvideFirstnamePC
+const userProvideFirstnamePC = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let first_name = '';
+    let transcript;
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            first_name = outputContext.parameters.first_name;
+            transcript = outputContext.parameters.transcript;
+        }
+    });
+
+    let outString = '';
+
+    if (first_name === undefined) {
+        outString += `Great! I just need your contact information and have our patient coordinator call you. Before we start please tell me your name.`;
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false);
+    } else {
+        outString += `May I please have your last name and phone number for correspondence?`;
+        let awaitLP = `${session}/contexts/await-pc-lastname-number`;
+        let oc = [{
+            name: awaitLP,
+            lifespanCount: 2
+        }];
+
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    }
+};
+
 // Webhook route
 webApp.post('/webhook', async (req, res) => {
 
@@ -268,10 +331,12 @@ webApp.post('/webhook', async (req, res) => {
         response = await userProvidesLastnameNumberPC(req);
     } else if (action === 'utteranceTranscript') {
         response = utteranceTranscript(req, true);
+    } else if (action === 'userProvideFirstnamePC') {
+        response = userProvideFirstnamePC(req);  
     } else {
         response = {
             fulfillmentText: 'No action is set for this intent.'
-        }
+        };
     }
 
     res.send(response);
