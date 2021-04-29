@@ -52,16 +52,19 @@ const URL = process.env.URL;
 // Create new organization
 const createData = async (endPoint, fields) => {
 
-    url = `${URL}/${endPoint}`;
+    url = `${URL}/${endPoint}/`;
+    console.log(`The URL --> ${url}`);
     headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
     };
 
     try {
-        let response = await axios.get(url, headers, fields);
+        let response = await axios.post(url, JSON.stringify(fields), headers);
+        console.log(`This is the response --> ${response.data}`);
         console.log(`New data create with status --> ${response.data.status}`);
     } catch (error) {
-        console.log(`Error at createNewOrganization --> ${error}`);
+        console.log(`Error at createData --> ${error}`);
     }
 };
 
@@ -102,7 +105,7 @@ const utteranceTranscript = (req, flag, oc='') => {
 
     transcript.push({
         user: queryText,
-        bot: fulfillmentText,
+        SmartChat_Agent: fulfillmentText,
         date: date.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
     });
 
@@ -213,8 +216,10 @@ const userProvidesLeadSource = async (req) => {
     };
 
     if (patient_type === 'Existing Patient') {
+        fields['Intent Name'] = 'Existing Patient Appointment Request';
         await createData('ovtl2cp', fields);
     } else {
+        fields['Intent Name'] = 'New Patient Appointment Request';
         await createData('ovtlopy', fields);
     }
 
@@ -259,8 +264,10 @@ const userProvidesLastnameNumberPC = async (req) => {
     };
 
     if (patient_type === 'Existing Patient') {
+        fields['Intent Name'] = 'Existing Patient Callback Request';
         await createData('ovtqvw5', fields);
     } else {
+        fields['Intent Name'] = 'New Patient Callback Request';
         await createData('ovtloyr', fields);
     }
 
