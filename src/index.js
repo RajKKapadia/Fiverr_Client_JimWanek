@@ -59,9 +59,11 @@ const createData = async (endPoint, fields) => {
         'Content-Type': 'application/x-www-form-urlencoded',
     };
 
+    console.log(`This is the data ${JSON.stringify(fields, 2, ' ')}`);
+
     try {
         let response = await axios.post(url, JSON.stringify(fields), headers);
-        console.log(`This is the response --> ${response.data}`);
+        console.log(`This is the response --> ${JSON.stringify(response.data, 2, ' ')}`);
         console.log(`New data create with status --> ${response.data.status}`);
     } catch (error) {
         console.log(`Error at createData --> ${error}`);
@@ -69,7 +71,7 @@ const createData = async (endPoint, fields) => {
 };
 
 // create utterance transcript
-const utteranceTranscript = (req, flag, oc='') => {
+const utteranceTranscript = (req, flag, oc = '') => {
 
     let fulfillmentText = '';
     let queryText = '';
@@ -105,7 +107,7 @@ const utteranceTranscript = (req, flag, oc='') => {
 
     transcript.push({
         user: queryText,
-        SmartChat_Agent: fulfillmentText,
+        SmartBox_Agent: fulfillmentText,
         date: date.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
     });
 
@@ -196,8 +198,27 @@ const userProvidesLeadSource = async (req) => {
 
     transcript.push({
         user: queryText,
-        bot: 'Sounds good. Can I help with anything else?',
+        SmartBox_Agent: 'Sounds good. Can I help with anything else?',
         date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+    });
+
+    let newTranscript = [];
+
+    let username = `${first_name}_${last_name}`;
+
+    transcript.forEach(ts => {
+
+        let data = {};
+        data[username] = ts.user;
+        data['SmartBox_Agent'] = ts.SmartBox_Agent;
+        data['date'] = ts.date;
+
+        newTranscript.push(data);
+    });
+
+    newTranscript.push({
+        first_name: first_name,
+        last_name: last_name
     });
 
     let datetime = getDateTime(appt_date, appt_time);
@@ -212,7 +233,7 @@ const userProvidesLeadSource = async (req) => {
         appt_type: appt_type,
         appt_date: datetime.date,
         appt_time: datetime.time,
-        transcript: transcript
+        transcript: newTranscript
     };
 
     if (patient_type === 'Existing Patient') {
@@ -251,8 +272,27 @@ const userProvidesLastnameNumberPC = async (req) => {
 
     transcript.push({
         user: queryText,
-        bot: 'Sounds good. Can I help with anything else?',
+        SmartBox_Agent: 'Sounds good. Can I help with anything else?',
         date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+    });
+
+    let newTranscript = [];
+
+    let username = `${first_name}_${last_name}`;
+
+    transcript.forEach(ts => {
+
+        let data = {};
+        data[username] = ts.user;
+        data['SmartBox_Agent'] = ts.SmartBox_Agent;
+        data['date'] = ts.date;
+
+        newTranscript.push(data);
+    });
+
+    newTranscript.push({
+        first_name: first_name,
+        last_name: last_name
     });
 
     let fields = {
@@ -260,7 +300,7 @@ const userProvidesLastnameNumberPC = async (req) => {
         last_name: last_name,
         phone: `${phone}`,
         patient_type: patient_type,
-        transcript: transcript
+        transcript: newTranscript
     };
 
     if (patient_type === 'Existing Patient') {
@@ -339,7 +379,7 @@ webApp.post('/webhook', async (req, res) => {
     } else if (action === 'utteranceTranscript') {
         response = utteranceTranscript(req, true);
     } else if (action === 'userProvideFirstnamePC') {
-        response = userProvideFirstnamePC(req);  
+        response = userProvideFirstnamePC(req);
     } else {
         response = {
             fulfillmentText: 'No action is set for this intent.'
