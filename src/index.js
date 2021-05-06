@@ -1,5 +1,4 @@
 // external packages
-const { response } = require('express');
 const express = require('express');
 require('dotenv').config();
 
@@ -106,9 +105,9 @@ const utteranceTranscript = (req, flag, oc = '') => {
     let date = new Date();
 
     transcript.push({
-        user: queryText,
-        SmartBox_Agent: fulfillmentText,
-        date: date.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+        user: `${queryText}\n`,
+        SmartBox_Agent: `${fulfillmentText}\n`,
+        date: `${date.toLocaleString('en', { timeZone: 'Asia/Kolkata' })}\n`
     });
 
     let contextName = `${session}/contexts/session`;
@@ -197,9 +196,9 @@ const userProvidesLeadSource = async (req) => {
     let tDate = new Date();
 
     transcript.push({
-        user: queryText,
-        SmartBox_Agent: 'Sounds good. Can I help with anything else?',
-        date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+        user: `${queryText}\n`,
+        SmartBox_Agent: 'Sounds good. Can I help with anything else?\n',
+        date: `${tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })}\n`
     });
 
     let newTranscript = [];
@@ -271,9 +270,9 @@ const userProvidesLastnameNumberPC = async (req) => {
     let tDate = new Date();
 
     transcript.push({
-        user: queryText,
-        SmartBox_Agent: 'Sounds good. Can I help with anything else?',
-        date: tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })
+        user: `${queryText}\n`,
+        SmartBox_Agent: 'Sounds good. Can I help with anything else?\n',
+        date: `${tDate.toLocaleString('en', { timeZone: 'Asia/Kolkata' })}\n`
     });
 
     let newTranscript = [];
