@@ -159,7 +159,7 @@ const userProvidesAppointmentType = (req) => {
         }
     });
 
-    let outString = `Thanks ${first_name}! Are you a new or existing patient?`;
+    let outString = `Got that ${first_name}! Are you a new or existing patient?`;
 
     return utteranceTranscript({
         fulfillmentText: outString,
@@ -175,7 +175,7 @@ const userProvidesLeadSource = async (req) => {
     let outputContexts = req.body.queryResult.outputContexts;
     let queryText = req.body.queryResult.queryText;
 
-    let first_name, last_name, phone, email, patient_type, lead_source, appt_type, appt_date, appt_time, transcript;
+    let first_name, last_name, phone, email, patient_type, appt_type, transcript;
 
     outputContexts.forEach(outputContext => {
         let session = outputContext.name;
@@ -185,10 +185,7 @@ const userProvidesLeadSource = async (req) => {
             phone = outputContext.parameters.phone;
             email = outputContext.parameters.email;
             patient_type = outputContext.parameters.patient_type;
-            lead_source = outputContext.parameters.lead_source;
             appt_type = outputContext.parameters.appt_type;
-            appt_date = outputContext.parameters.appt_date;
-            appt_time = outputContext.parameters.appt_time;
             transcript = outputContext.parameters.transcript;
         }
     });
@@ -220,18 +217,13 @@ const userProvidesLeadSource = async (req) => {
         last_name: last_name
     });
 
-    let datetime = getDateTime(appt_date, appt_time);
-
     let fields = {
         first_name: first_name,
         last_name: last_name,
         phone: `${phone}`,
         email: email,
         patient_type: patient_type,
-        lead_source: lead_source,
         appt_type: appt_type,
-        appt_date: datetime.date,
-        appt_time: datetime.time,
         transcript: newTranscript
     };
 
@@ -310,25 +302,34 @@ const userProvidesLastnameNumberPC = async (req) => {
         await createData('ovtloyr', fields);
     }
 
+    let session = req.body.session;
+    let awaitFirstnamePC = `${session}/contexts/await-pc-first-name`;
+
     return {
-        fulfillmentText: 'Sounds good. Can I help with anything else?'
+        fulfillmentText: 'Sounds good. Can I help with anything else?',
+        outputContexts: [{
+            name: awaitFirstnamePC,
+            lifespanCount: 0
+        }]
     };
 };
 
 // Handle userProvideFirstnamePC
-const userProvideFirstnamePC = (req) => {
+const userProvideFirstnamePC = async (req) => {
 
     let outputContexts = req.body.queryResult.outputContexts;
     let queryText = req.body.queryResult.queryText;
     let session = req.body.session;
 
-    let first_name = '';
+    let first_name, last_name, phone;
     let transcript;
 
     outputContexts.forEach(outputContext => {
         let session = outputContext.name;
         if (session.includes('/contexts/session')) {
             first_name = outputContext.parameters.first_name;
+            last_name = outputContext.parameters.last_name;
+            phone = outputContext.parameters.phone;
             transcript = outputContext.parameters.transcript;
         }
     });
@@ -343,7 +344,7 @@ const userProvideFirstnamePC = (req) => {
             session: session,
             transcript: transcript
         }, false);
-    } else {
+    } else  if (last_name == undefined && phone === undefined) {
         outString += `May I please have your last name and phone number for correspondence?`;
         let awaitLP = `${session}/contexts/await-pc-lastname-number`;
         let oc = [{
@@ -357,8 +358,186 @@ const userProvideFirstnamePC = (req) => {
             session: session,
             transcript: transcript
         }, false, oc);
+    } else {
+        let responseData = await userProvidesLastnameNumberPC(req);
+        return responseData;
     }
 };
+
+// Handle checkFirstNameAtDefaultWelcomeIntent
+const checkFirstNameAtDefaultWelcomeIntent = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let first_name;
+    let transcript = [];
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            if (outputContext.hasOwnProperty('parameters')) {
+                first_name = outputContext.parameters.first_name;
+                transcript = outputContext.parameters.transcript; 
+            }
+        }
+    });
+
+    let outString = '';
+
+    if (first_name === undefined) {
+        outString += `I'm Lisa, the virtual assistant for ABC Dental. To get started, what is your first name?`;
+        let awaitFirstname = `${session}/contexts/await-first-name`;
+        let oc = [{
+            name: awaitFirstname,
+            lifespanCount: 1
+        }];
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    } else {
+        outString += `Thanks ${first_name}! May I help you schedule an appointment today?`;
+        let awaitAC = `${session}/contexts/await-appointment-confirmatio`;
+        let awaitFirstname = `${session}/contexts/await-first-name`;
+        let oc = [{
+            name: awaitAC,
+            lifespanCount: 1
+        }, {
+            name: awaitFirstname,
+            lifespanCount: 0
+        }];
+
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    }
+};
+
+// Handle checkFirstNameUserChoosesAppointment
+const checkFirstNameUserChoosesAppointment = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let first_name;
+    let transcript = [];
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            if (outputContext.hasOwnProperty('parameters')) {
+                first_name = outputContext.parameters.first_name;
+                transcript = outputContext.parameters.transcript; 
+            }
+        }
+    });
+
+    let outString = '';
+
+    if (first_name === undefined) {
+        outString += `Sure, I can help you with that. To get started, what is your first name?`;
+        let awaitFirstnameD = `${session}/contexts/await-first-name-d`;
+        let oc = [{
+            name: awaitFirstnameD,
+            lifespanCount: 1
+        }];
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    } else {
+        outString += `Sure ${first_name}! I can help you with that. What type of appointment do you need?`;
+        let awaitAT = `${session}/contexts/await-appointment-type`;
+        let awaitFirstnameD = `${session}/contexts/await-first-name-d`;
+        let oc = [{
+            name: awaitAT,
+            lifespanCount: 1
+        }, {
+            name: awaitFirstnameD,
+            lifespanCount: 0
+        }];
+
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    }
+};
+
+// Handle checkLastnameNumberUPPType
+const checkLastnameNumberUPPType = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let last_name, phone;
+    let transcript = [];
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            if (outputContext.hasOwnProperty('parameters')) {
+                last_name = outputContext.parameters.last_name;
+                phone = outputContext.parameters.phone
+                transcript = outputContext.parameters.transcript; 
+            }
+        }
+    });
+
+    let outString = '';
+
+    if (last_name === undefined && phone === undefined) {
+        outString += `May I please have your last name and phone number to begin?`;
+        let awaitLastnameNumber = `${session}/contexts/await-lastname-number`;
+        let awaitEmail = `${session}/contexts/await-email`;
+        let oc = [{
+            name: awaitLastnameNumber,
+            lifespanCount: 2
+        }, {
+            name: awaitEmail,
+            lifespanCount: 0
+        }];
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    } else {
+        outString += `Thank you! May I also have your email for correspondence?`;
+        let awaitEmail = `${session}/contexts/await-email`;
+        let awaitLastnameNumber = `${session}/contexts/await-lastname-number`;
+        let oc = [{
+            name: awaitEmail,
+            lifespanCount: 1
+        }, {
+            name: awaitLastnameNumber,
+            lifespanCount: 0
+        }];
+
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    }
+};
+
+
 
 // Webhook route
 webApp.post('/webhook', async (req, res) => {
@@ -367,25 +546,34 @@ webApp.post('/webhook', async (req, res) => {
     console.log('Webhook called');
     console.log(action);
 
-    let response = {};
+    let responseData = {};
 
     if (action === 'userProvidesAppointmentType') {
-        response = userProvidesAppointmentType(req);
+        responseData = userProvidesAppointmentType(req);
     } else if (action === 'userProvidesLeadSource') {
-        response = await userProvidesLeadSource(req);
+        responseData = await userProvidesLeadSource(req);
     } else if (action === 'userProvidesLastnameNumberPC') {
-        response = await userProvidesLastnameNumberPC(req);
+        responseData = await userProvidesLastnameNumberPC(req);
     } else if (action === 'utteranceTranscript') {
-        response = utteranceTranscript(req, true);
+        responseData = utteranceTranscript(req, true);
     } else if (action === 'userProvideFirstnamePC') {
-        response = userProvideFirstnamePC(req);
-    } else {
-        response = {
+        responseData = await userProvideFirstnamePC(req);
+    } else if (action === 'checkFirstNameAtDefaultWelcomeIntent') {
+        responseData = checkFirstNameAtDefaultWelcomeIntent(req);
+    } else if (action === 'checkFirstNameUserChoosesAppointment') {
+        responseData = checkFirstNameUserChoosesAppointment(req);
+    } else if (action === 'checkLastnameNumberUPPType') {
+        responseData = checkLastnameNumberUPPType(req);
+    } else if (action === 'checkFirstnameUCPC') {
+        responseData = checkFirstnameUCPC(req);
+    } 
+    else {
+        responseData = {
             fulfillmentText: 'No action is set for this intent.'
         };
     }
 
-    res.send(response);
+    res.send(responseData);
 });
 
 // Start the server
