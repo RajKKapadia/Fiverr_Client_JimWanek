@@ -109,14 +109,20 @@ const userProvidesAppointmentType = (req) => {
         }
     });
 
-    let outString = `Thanks ${first_name}! ::next-1000::Are you a new or existing patient?<button type="button" class"quick_reply">New Patient</button><button type="button" class"quick_reply">Existing Patient</button>`;
+    let outString = `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+
+    let awaitLastVisit = `${session}/contexts/await-last-visit`;
+    let oc = [{
+        name: awaitLastVisit,
+        lifespanCount: 1
+    }];
 
     return utteranceTranscript({
         fulfillmentText: outString,
         queryText: queryText,
         session: session,
         transcript: transcript
-    }, false);
+    }, false, oc);
 };
 
 // Handle userProvideFirstnamePC
@@ -181,7 +187,7 @@ const userProvideFirstnamePC = async (req) => {
         }
         let oc = [{
             name: patientTypeContext,
-            lifespanCount: 5
+            lifespanCount: 1
         }];
         return utteranceTranscript({
             fulfillmentText: outString,
@@ -202,7 +208,7 @@ const userProvideFirstnamePC = async (req) => {
         }
         let oc = [{
             name: patientTypeContext,
-            lifespanCount: 5
+            lifespanCount: 0
         }, {
             name: awaitPatientTypePC,
             lifespanCount: 0
@@ -226,7 +232,7 @@ const checkFirstNameAtDefaultWelcomeIntent = (req) => {
     let queryText = req.body.queryResult.queryText;
     let session = req.body.session;
 
-    let first_name, confirmation;
+    let first_name;
     let transcript = [];
 
     outputContexts.forEach(outputContext => {
@@ -234,7 +240,6 @@ const checkFirstNameAtDefaultWelcomeIntent = (req) => {
         if (session.includes('/contexts/session')) {
             if (outputContext.hasOwnProperty('parameters')) {
                 first_name = outputContext.parameters.first_name;
-                confirmation = outputContext.parameters.confirmation;
                 transcript = outputContext.parameters.transcript;
             }
         }
@@ -283,7 +288,7 @@ const checkFirstNameUserChoosesAppointment = (req) => {
     let queryText = req.body.queryResult.queryText;
     let session = req.body.session;
 
-    let first_name, last_name, phone, patient_type, appt_type;
+    let first_name, last_name, phone, patient_type, appt_type, duration;
     let transcript = [];
 
     outputContexts.forEach(outputContext => {
@@ -295,6 +300,7 @@ const checkFirstNameUserChoosesAppointment = (req) => {
                 phone = outputContext.parameters.phone;
                 patient_type = outputContext.parameters.patient_type;
                 appt_type = outputContext.parameters.appt_type;
+                duration = outputContext.parameters.duration;
                 transcript = outputContext.parameters.transcript;
             }
         }
@@ -316,10 +322,23 @@ const checkFirstNameUserChoosesAppointment = (req) => {
             transcript: transcript
         }, false, oc);
     } else if (appt_type === undefined) {
-        outString += `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+        outString += `Sounds good. I can help you schedule an appointment at <%practice_name%>.::next-2000:: What type of appointment do you need?<button type="button" class"quick_reply">Exam and Cleaning</button><button type="button" class"quick_reply">Tooth Pain</button><button type="button" class"quick_reply">Emergency</button><button type="button" class"quick_reply">Something Else</button>%disable`;
         let awaitAppointmentType = `${session}/contexts/await-appointment-type`;
         let oc = [{
             name: awaitAppointmentType,
+            lifespanCount: 1
+        }];
+        return utteranceTranscript({
+            fulfillmentText: outString,
+            queryText: queryText,
+            session: session,
+            transcript: transcript
+        }, false, oc);
+    } else if (duration === undefined) {
+        outString += `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+        let awaitLastVisit = `${session}/contexts/await-last-visit`;
+        let oc = [{
+            name: awaitLastVisit,
             lifespanCount: 1
         }];
         return utteranceTranscript({
@@ -356,6 +375,7 @@ const checkFirstNameUserChoosesAppointment = (req) => {
         }, false, oc);
     } else {
         outString += `Thank you! May I also have your email for correspondence?`;
+        let awaitLastnameNumber = `${session}/contexts/await-lastname-number`;
         let patientTypeContext = `${session}/contexts/`
         // Set patient type context
         if (patient_type === 'Existing Patient') {
@@ -365,7 +385,10 @@ const checkFirstNameUserChoosesAppointment = (req) => {
         }
         let oc = [{
             name: patientTypeContext,
-            lifespanCount: 5
+            lifespanCount: 1
+        }, {
+            name: awaitLastnameNumber,
+            lifespanCount: 0
         }];
 
         return utteranceTranscript({
@@ -404,20 +427,10 @@ const checkLastnameNumberUPPType = (req) => {
     if (last_name === undefined && phone === undefined) {
         outString += `To get started, what is your last name and the best phone number to reach you?`;
         let awaitLastnameNumber = `${session}/contexts/await-lastname-number`;
-        let patientTypeContext = `${session}/contexts/`
-        // Set patient type context
-        if (patient_type === 'Existing Patient') {
-            patientTypeContext += 'existing-patient-email';
-        } else {
-            patientTypeContext += 'new-patient-email'
-        }
 
         let oc = [{
             name: awaitLastnameNumber,
             lifespanCount: 2
-        }, {
-            name: patientTypeContext,
-            lifespanCount: 5
         }];
         return utteranceTranscript({
             fulfillmentText: outString,
@@ -437,7 +450,7 @@ const checkLastnameNumberUPPType = (req) => {
         }
         let oc = [{
             name: patientTypeContext,
-            lifespanCount: 5
+            lifespanCount: 1
         }, {
             name: awaitLastnameNumber,
             lifespanCount: 0
