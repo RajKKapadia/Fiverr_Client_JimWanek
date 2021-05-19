@@ -198,7 +198,7 @@ const userProvideFirstnamePC = async (req) => {
     } else {
         outString += `Thank you ${first_name}!::next-1000:: Expect a call from our patient coordinator to schedule your appointment.::next-2000:: Can I help with anything else?<button type="button" class"quick_reply">Disconnect</button>`;
         let patientTypeContext = `${session}/contexts/`;
-        let awaitPatientTypePC = `${sessions}/contexts/await-pc-patient-type`;
+        let awaitPatientTypePC = `${session}/contexts/await-pc-patient-type`;
         let awaitFirstnamePC = `${session}/contexts/await-pc-first-name`;
         // Set patient type context
         if (patient_type === 'Existing Patient') {
@@ -469,8 +469,11 @@ const checkLastnameNumberUPPType = (req) => {
 webApp.post('/webhook', async (req, res) => {
 
     let action = req.body.queryResult.action;
-    console.log('Webhook called');
-    console.log(action);
+    let session = req.body.session;
+    console.log('Webhook called.');
+    console.log(`Action --> ${action}`);
+    console.log(`Session --> ${session}`);
+
 
     let responseData = {};
 
