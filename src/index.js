@@ -19,6 +19,8 @@ webApp.get('/', (req, res) => {
     res.send(`Hello World.!`);
 });
 
+const REGEXP = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
 // create utterance transcript
 const utteranceTranscript = (req, flag, oc = '') => {
 
@@ -109,11 +111,11 @@ const userProvidesAppointmentType = (req) => {
         }
     });
 
-    let outString = `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+    let outString = `Got that ${first_name}! Are you a new or existing patient?`;
 
-    let awaitLastVisit = `${session}/contexts/await-last-visit`;
+    let awaitPatientType = `${session}/contexts/await-patient-type`;
     let oc = [{
-        name: awaitLastVisit,
+        name: awaitPatientType,
         lifespanCount: 1
     }];
 
@@ -197,7 +199,7 @@ const userProvideFirstnamePC = async (req) => {
     let queryText = req.body.queryResult.queryText;
     let session = req.body.session;
 
-    let first_name, last_name, phone, patient_type
+    let first_name, last_name, phone, patient_type, time;
     let transcript = [];
 
     outputContexts.forEach(outputContext => {
@@ -208,6 +210,7 @@ const userProvideFirstnamePC = async (req) => {
                 last_name = outputContext.parameters.last_name;
                 phone = outputContext.parameters.phone;
                 patient_type = outputContext.parameters.patient_type;
+                time = outputContext.parameters.time;
                 transcript = outputContext.parameters.transcript;
             }
         }
@@ -255,16 +258,10 @@ const userProvideFirstnamePC = async (req) => {
             transcript: transcript
         }, false, oc);
     } else if (phone === undefined) {
-        outString += `Thanks ${first_name}! ::next-1000::What is the best number for our patient coordinator to call you?`;
-        let patientTypeContext = `${session}/contexts/`
-        // Set patient type context
-        if (patient_type === 'Existing Patient') {
-            patientTypeContext += 'existing-patient-phone';
-        } else {
-            patientTypeContext += 'new-patient-phone'
-        }
+        outString += `Thanks ${first_name}!::next-1000::What is the best number for our patient coordinator to call you?`;
+        let awaitPhonePC = `${session}/contexts/await-phone-pc`
         let oc = [{
-            name: patientTypeContext,
+            name: awaitPhonePC,
             lifespanCount: 1
         }];
         return utteranceTranscript({
@@ -273,6 +270,40 @@ const userProvideFirstnamePC = async (req) => {
             session: session,
             transcript: transcript
         }, false, oc);
+    } else if (time === undefined) {
+        if (String(phone).length < 10) {
+            outString += `Hey ${first_name}, please enter a valid 10 digit phone number.`;
+            let awaitPhonePC = `${session}/contexts/await-phone-pc`
+            let oc = [{
+                name: awaitPhonePC,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
+        } else {
+            outString += `When is the best time to contact you?<button type="button" class"quick_reply">Morning</button><button type="button" class"quick_reply">Afternoon</button><button type="button" class"quick_reply">Evening</button>`;
+            let patientTypeContext = `${session}/contexts/`
+            // Set patient type context
+            if (patient_type === 'Existing Patient') {
+                patientTypeContext += 'existing-patient-time';
+            } else {
+                patientTypeContext += 'new-patient-time'
+            }
+            let oc = [{
+                name: patientTypeContext,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
+        }
     } else {
         outString += `Thank you ${first_name}!::next-1000:: Expect a call from our patient coordinator to schedule your appointment.::next-2000:: Can I help with anything else?<button type="button" class"quick_reply">Disconnect</button>`;
         let patientTypeContext = `${session}/contexts/`;
@@ -413,19 +444,6 @@ const checkFirstNameUserChoosesAppointment = (req) => {
             session: session,
             transcript: transcript
         }, false, oc);
-    } else if (duration === undefined) {
-        outString += `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
-        let awaitLastVisit = `${session}/contexts/await-last-visit`;
-        let oc = [{
-            name: awaitLastVisit,
-            lifespanCount: 1
-        }];
-        return utteranceTranscript({
-            fulfillmentText: outString,
-            queryText: queryText,
-            session: session,
-            transcript: transcript
-        }, false, oc);
     } else if (patient_type === undefined) {
         outString += `Got that ${first_name}! Are you a new or existing patient?`;
         let awaitPatientType = `${session}/contexts/await-patient-type`;
@@ -466,24 +484,68 @@ const checkFirstNameUserChoosesAppointment = (req) => {
             transcript: transcript
         }, false, oc);
     } else if (email === undefined) {
-        outString += `Thank you! May I also have your email for correspondence?`;
-        let patientTypeContext = `${session}/contexts/`
-        // Set patient type context
-        if (patient_type === 'Existing Patient') {
-            patientTypeContext += 'existing-patient-email';
+        // Check phone number
+        if (String(phone).length < 10) {
+            outString += `Hey ${first_name}, please enter a valid 10 digit phone number.`;
+            let awaitPhone = `${session}/contexts/await-phone`;
+            let oc = [{
+                name: awaitPhone,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
         } else {
-            patientTypeContext += 'new-patient-email'
+            outString += `Thank you! May I also have your email for correspondence?`;
+            let awaitEmail = `${session}/contexts/await-email`
+            let oc = [{
+                name: awaitEmail,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
         }
-        let oc = [{
-            name: patientTypeContext,
-            lifespanCount: 1
-        }];
-        return utteranceTranscript({
-            fulfillmentText: outString,
-            queryText: queryText,
-            session: session,
-            transcript: transcript
-        }, false, oc);
+    } else if (duration === undefined) {
+        if (!REGEXP.test(email.toLowerCase())) {
+            outString += `Please enter a valid email address or enter Skip to continue.`;
+            let awaitEmail = `${session}/contexts/await-email`
+            let oc = [{
+                name: awaitEmail,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
+        } else {
+            outString += `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+            let patientTypeContext = `${session}/contexts/`;
+            // Set patient type context
+            if (patient_type === 'Existing Patient') {
+                patientTypeContext += 'existing-patient-lastvisit';
+            } else {
+                patientTypeContext += 'new-patient-lastvisit';
+            }
+            let oc = [{
+                name: patientTypeContext,
+                lifespanCount: 1
+            }];
+            return utteranceTranscript({
+                fulfillmentText: outString,
+                queryText: queryText,
+                session: session,
+                transcript: transcript
+            }, false, oc);
+        }
     } else {
         outString += `Sounds good. Expect a call from our patient coordinator to schedule your appointment.::next-2000::Can I help with anything else?<button type="button" class"quick_reply">Disconnect</button>`;
         return utteranceTranscript({
@@ -493,6 +555,47 @@ const checkFirstNameUserChoosesAppointment = (req) => {
             transcript: transcript
         }, false);
     }
+};
+
+// Handle skip email
+const skipEmail = (req) => {
+
+    let outputContexts = req.body.queryResult.outputContexts;
+    let queryText = req.body.queryResult.queryText;
+    let session = req.body.session;
+
+    let first_name, patient_type;
+    let transcript = [];
+
+    outputContexts.forEach(outputContext => {
+        let session = outputContext.name;
+        if (session.includes('/contexts/session')) {
+            if (outputContext.hasOwnProperty('parameters')) {
+                first_name = outputContext.parameters.first_name;
+                patient_type = outputContext.parameters.patient_type;
+                transcript = outputContext.parameters.transcript;
+            }
+        }
+    });
+
+    let outString = `Thanks ${first_name}! ::next-1000::When was your last see a dentist?<button type="button" class"quick_reply">6 months</button><button type="button" class"quick_reply">1 year</button><button type="button" class"quick_reply">More than a year</button>`;
+    let patientTypeContext = `${session}/contexts/`;
+    // Set patient type context
+    if (patient_type === 'Existing Patient') {
+        patientTypeContext += 'existing-patient-lastvisit';
+    } else {
+        patientTypeContext += 'new-patient-lastvisit';
+    }
+    let oc = [{
+        name: patientTypeContext,
+        lifespanCount: 1
+    }];
+    return utteranceTranscript({
+        fulfillmentText: outString,
+        queryText: queryText,
+        session: session,
+        transcript: transcript
+    }, false, oc);
 };
 
 // Webhook route
@@ -525,8 +628,9 @@ webApp.post('/webhook', async (req, res) => {
         responseData = checkLastnameNumberUPPType(req);
     } else if (action === 'checkFirstnameUCPC') {
         responseData = checkFirstnameUCPC(req);
-    }
-    else {
+    } else if (action === 'skipEmail') {
+        responseData = skipEmail(req);
+    } else {
         responseData = {
             fulfillmentText: 'No action is set for this intent.'
         };
